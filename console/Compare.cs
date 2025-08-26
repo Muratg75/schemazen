@@ -11,6 +11,7 @@ namespace SchemaZen.console {
 		private string _outDiff;
 		private bool _overwrite;
 		private bool _verbose;
+		private string _versionNumber;
 
 		public Compare() {
 			IsCommand("Compare", "CreateDiff two databases.");
@@ -28,6 +29,10 @@ namespace SchemaZen.console {
 				"outFile=",
 				"Create a sql diff file in the specified path.",
 				o => _outDiff = o);
+			HasOption(
+				"version=",
+				"Create a insert version sql at the end of file.",
+				o => _versionNumber = o);
 			HasOption(
 				"o|overwrite",
 				"Overwrite existing target without prompt.",
@@ -54,7 +59,7 @@ namespace SchemaZen.console {
 				Target = _target,
 				Verbose = _verbose,
 				OutDiff = _outDiff,
-				Overwrite = _overwrite
+				VersionNumber = _versionNumber
 			};
 
 			try {

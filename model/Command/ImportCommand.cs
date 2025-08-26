@@ -5,12 +5,12 @@ using System.IO;
 using System.Linq;
 
 namespace SchemaZen.Library.Command {
-	public class ScriptCommand : BaseCommand {
+	public class ImportCommand : BaseCommand {
 
 		public void Execute(Dictionary<string, string> namesAndSchemas, string dataTablesPattern, string dataTablesExcludePattern,
-            string tableHint, List<string> filteredTypes, bool onlyExportData = true) {
-			if (!Overwrite && Directory.Exists(ScriptDir)) {
-				var message = $"{ScriptDir} already exists - you must set overwrite to true";
+            string tableHint, List<string> filteredTypes) {
+			if (!Directory.Exists(ScriptDir)) {
+				var message = $"{ScriptDir} not exists - you must set import dir";
 				throw new InvalidOperationException(message);
 			}
 
@@ -24,16 +24,9 @@ namespace SchemaZen.Library.Command {
 				AddDataTable(db, nameAndSchema.Key, nameAndSchema.Value);
 			}
 
-            if (!string.IsNullOrEmpty(dataTablesPattern) || !string.IsNullOrEmpty(dataTablesExcludePattern)) {
-                var tables = db.FindTablesRegEx(dataTablesPattern, dataTablesExcludePattern);
-                foreach (var t in tables.Where(t => !db.DataTables.Contains(t))) {
-                    db.DataTables.Add(t);
-                }
-            }
+			db.ImportData(Logger.Log);
 
-		    db.ScriptToDir(tableHint, Logger.Log, onlyExportData);
-
-			Logger.Log(TraceLevel.Info, $"{Environment.NewLine}Snapshot successfully created at {db.Dir}");
+			Logger.Log(TraceLevel.Info, $"{Environment.NewLine} successfully created at {db.Dir}");
 			var routinesWithWarnings = db.Routines.Select(r => new {
 				Routine = r,
 				Warnings = r.Warnings().ToList()

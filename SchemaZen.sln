@@ -1,24 +1,19 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.27703.2035
+VisualStudioVersion = 15.0.27130.2036
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Console", "console\Console.csproj", "{95219FB8-6E54-4672-943B-3D2ECAED51A2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Schemazen.Console", "console\Schemazen.Console.csproj", "{95219FB8-6E54-4672-943B-3D2ECAED51A2}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "test\Tests.csproj", "{73E24852-B1C6-476B-B5D9-ADB06D5870D2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Library", "model\Library.csproj", "{1283684F-CC5F-4647-BD97-9D833D20110E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Schemazen.Library", "model\Schemazen.Library.csproj", "{1283684F-CC5F-4647-BD97-9D833D20110E}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{45A1FC03-225C-4D1C-877B-5ECF25E392C5}"
 	ProjectSection(SolutionItems) = preProject
 		.nuget\NuGet.Config = .nuget\NuGet.Config
 		.nuget\NuGet.exe = .nuget\NuGet.exe
 		.nuget\NuGet.targets = .nuget\NuGet.targets
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{FB9C025B-E448-4ED8-93A0-493221B58015}"
-	ProjectSection(SolutionItems) = preProject
-		format.ps1 = format.ps1
 	EndProjectSection
 EndProject
 Global
@@ -44,6 +39,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {5DBF51A3-1DD8-4C38-8FC2-2F6D729F88DF}
+		SolutionGuid = {6B1FBF3B-B246-4285-8CA6-457E542B777F}
 	EndGlobalSection
 EndGlobal

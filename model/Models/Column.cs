@@ -3,6 +3,7 @@ using System.Text;
 
 namespace SchemaZen.Library.Models {
 	public class Column {
+
 		public Default Default { get; set; }
 		public Identity Identity { get; set; }
 		public bool IsNullable { get; set; }
@@ -29,8 +30,7 @@ namespace SchemaZen.Library.Models {
 			Length = length;
 		}
 
-		public Column(string name, string type, byte precision, int scale, bool nullable,
-			Default defaultValue)
+		public Column(string name, string type, byte precision, int scale, bool nullable, Default defaultValue)
 			: this(name, type, nullable, defaultValue) {
 			Precision = precision;
 			Scale = scale;
@@ -57,21 +57,21 @@ namespace SchemaZen.Library.Models {
 			}
 		}
 
-		public string RowGuidColText => IsRowGuidCol ? " ROWGUIDCOL " : string.Empty;
+    public string RowGuidColText => IsRowGuidCol ? " ROWGUIDCOL " : string.Empty;
+    
+    public bool Persisted { get; set; }
 
-		public bool Persisted { get; set; }
-
-		public ColumnDiff Compare(Column c) {
+	    public ColumnDiff Compare(Column c) {
 			return new ColumnDiff(this, c);
 		}
 
 		private string ScriptBase(bool includeDefaultConstraint) {
-			if (!string.IsNullOrEmpty(ComputedDefinition)) {
-				var persistedSetting = Persisted ? " PERSISTED" : string.Empty;
-				return $"[{Name}] AS {ComputedDefinition}{persistedSetting}";
-			}
+		    if (!string.IsNullOrEmpty(ComputedDefinition)) {
+		        var persistedSetting = Persisted ? " PERSISTED" : string.Empty;
+		        return $"[{Name}] AS {ComputedDefinition}{persistedSetting}";
+		    }
 
-			var val = new StringBuilder($"[{Name}] [{Type}]");
+		    var val = new StringBuilder($"[{Name}] [{Type}]");
 
 			switch (Type) {
 				case "bigint":
@@ -125,8 +125,7 @@ namespace SchemaZen.Library.Models {
 					return val.ToString();
 
 				default:
-					throw new NotSupportedException("Error scripting column " + Name +
-						". SQL data type " + Type + " is not supported.");
+					throw new NotSupportedException("Error scripting column " + Name + ". SQL data type " + Type + " is not supported.");
 			}
 		}
 
@@ -173,16 +172,12 @@ namespace SchemaZen.Library.Models {
 		}
 
 		public bool IsDiff => IsDiffBase || DefaultIsDiff;
+		// || Source.Position != Target.Position 
+		private bool IsDiffBase => Source.IsNullable != Target.IsNullable || Source.Length != Target.Length 
+								   || Source.Type != Target.Type || Source.Precision != Target.Precision ||
+								   Source.Scale != Target.Scale || Source.ComputedDefinition != Target.ComputedDefinition || Source.Persisted != Target.Persisted;
 
-		private bool IsDiffBase => Source.IsNullable != Target.IsNullable ||
-			Source.Length != Target.Length ||
-			Source.Position != Target.Position || Source.Type != Target.Type ||
-			Source.Precision != Target.Precision ||
-			Source.Scale != Target.Scale ||
-			Source.ComputedDefinition != Target.ComputedDefinition ||
-			Source.Persisted != Target.Persisted;
-
-		public bool DefaultIsDiff => Source.DefaultText != Target.DefaultText;
+        public bool DefaultIsDiff => Source.DefaultText != Target.DefaultText;
 
 		public bool OnlyDefaultIsDiff => DefaultIsDiff && !IsDiffBase;
 

@@ -29,17 +29,17 @@ end
 	}
 
 	public class Table : INameable, IHasOwner, IScriptable {
-		private const string _rowSeparator = "\r\n";
-		private const string _tab = "\t";
+        private const string _rowSeparator = "\r\n";
+        private const string _tab = "\t";
 		private const string _escapeTab = "--SchemaZenTAB--";
-		private const string _carriageReturn = "\r";
+		private const string _carriageReturn  = "\r";
 		private const string _escapeCarriageReturn = "--SchemaZenCR--";
-		private const string _lineFeed = "\n";
-		private const string _escapeLineFeed = "--SchemaZenLF--";
-		private const string _nullValue = "--SchemaZenNull--";
-		private const string _dateTimeFormat = "yyyy-MM-dd HH:mm:ss.FFFFFFF";
+        private const string _lineFeed = "\n";
+        private const string _escapeLineFeed = "--SchemaZenLF--";
+        private const string _nullValue = "--SchemaZenNull--";
+	    private const string _dateTimeFormat = "yyyy-MM-dd HH:mm:ss.FFFFFFF";
 
-		public const int RowsInBatch = 15000;
+        public const int RowsInBatch = 15000;
 
 		public ColumnList Columns = new ColumnList();
 		private readonly List<Constraint> _constraints = new List<Constraint>();
@@ -108,7 +108,6 @@ end
 						}
 					}
 				}
-
 				//get deleted constraints
 				foreach (var c in t.Constraints.Where(c => FindConstraint(c.Name) == null)) {
 					diff.ConstraintsDeleted.Add(c);
@@ -119,10 +118,9 @@ end
 				var src = t.Constraints.ToList();
 
 				var j = from c1 in dest
-					join c2 in src on c1.ScriptCreate() equals c2.ScriptCreate() into
-						match //new { c1.Type, c1.Unique, c1.Clustered, Columns = string.Join(",", c1.Columns.ToArray()), IncludedColumns = string.Join(",", c1.IncludedColumns.ToArray()) } equals new { c2.Type, c2.Unique, c2.Clustered, Columns = string.Join(",", c2.Columns.ToArray()), IncludedColumns = string.Join(",", c2.IncludedColumns.ToArray()) } into match
-					from m in match.DefaultIfEmpty()
-					select new { c1, m };
+						join c2 in src on c1.ScriptCreate() equals c2.ScriptCreate() into match //new { c1.Type, c1.Unique, c1.Clustered, Columns = string.Join(",", c1.Columns.ToArray()), IncludedColumns = string.Join(",", c1.IncludedColumns.ToArray()) } equals new { c2.Type, c2.Unique, c2.Clustered, Columns = string.Join(",", c2.Columns.ToArray()), IncludedColumns = string.Join(",", c2.IncludedColumns.ToArray()) } into match
+						from m in match.DefaultIfEmpty()
+						select new { c1, m };
 
 				foreach (var c in j) {
 					if (c.m == null) {
@@ -131,7 +129,6 @@ end
 						src.Remove(c.m);
 					}
 				}
-
 				foreach (var c in src) {
 					diff.ConstraintsDeleted.Add(c);
 				}
@@ -141,27 +138,38 @@ end
 		}
 
 		public string ScriptCreate() {
+			if (Name.ToUpper().StartsWith("ZZ"))
+				return "-- " + Name;
+
 			var text = new StringBuilder();
-			text.Append(
-				$"CREATE {(IsType ? "TYPE" : "TABLE")} [{Owner}].[{Name}] {(IsType ? "AS TABLE " : string.Empty)}(\r\n");
+			text.Append($"IF NOT EXISTS(SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[{Owner}].[{Name}]') AND type in (N'U'))\r\n");
+			text.Append($"BEGIN\n");
+			text.Append($"CREATE {(IsType ? "TYPE" : "TABLE")} [{Owner}].[{Name}] {(IsType ? "AS TABLE " : string.Empty)}(\r\n");
 			text.Append(Columns.Script());
 			if (_constraints.Count > 0) text.AppendLine();
-			foreach (var c in _constraints.OrderBy(x => x.Name).Where(c => c.Type != "INDEX")) {
-				text.AppendLine("   ," + c.ScriptCreate());
+			if (!IsType) { 
+				foreach (var c in _constraints.OrderBy(x => x.Name).Where(c => c.Type != "INDEX")) {
+					text.AppendLine("   ," + c.ScriptCreate());
+				}
 			}
-
 			text.AppendLine(")");
 			text.AppendLine();
 			foreach (var c in _constraints.Where(c => c.Type == "INDEX")) {
 				text.AppendLine(c.ScriptCreate());
 			}
-
+			text.Append("\nEND\n");
 			return text.ToString();
 		}
 
 		public string ScriptDrop() {
-			return $"DROP {(IsType ? "TYPE" : "TABLE")} [{Owner}].[{Name}]";
+
+			var text = new StringBuilder();
+			text.Append($"IF EXISTS(SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[{Owner}].[{Name}]') AND type in (N'U'))\r\n");
+			text.Append($" DROP {(IsType ? "TYPE" : "TABLE")} [{Owner}].[{Name}]\r\n");	
+			return text.ToString();	
+	//		return $"DROP {(IsType ? "TYPE" : "TABLE")} [{Owner}].[{Name}]";
 		}
+
 
 		public void ExportData(string conn, TextWriter data, string tableHint = null) {
 			if (IsType)
@@ -169,19 +177,14 @@ end
 
 			var sql = new StringBuilder();
 			sql.Append("select ");
-			var cols = Columns.Items.Where(c => string.IsNullOrEmpty(c.ComputedDefinition))
-				.ToArray();
+			var cols = Columns.Items.Where(c => string.IsNullOrEmpty(c.ComputedDefinition)).ToArray();
 			foreach (var c in cols) {
 				sql.Append($"[{c.Name}],");
 			}
-
 			sql.Remove(sql.Length - 1, 1);
 			sql.Append($" from [{Owner}].[{Name}]");
 			if (!string.IsNullOrEmpty(tableHint))
 				sql.Append($" WITH ({tableHint})");
-
-			AppendOrderBy(sql, cols);
-
 			using (var cn = new SqlConnection(conn)) {
 				cn.Open();
 				using (var cm = cn.CreateCommand()) {
@@ -193,25 +196,16 @@ end
 									data.Write(_nullValue);
 								else if (dr[c.Name] is byte[])
 									data.Write(new SoapHexBinary((byte[])dr[c.Name]).ToString());
-								else if (dr[c.Name] is DateTime) {
-									data.Write(
-										((DateTime)dr[c.Name])
-										.ToString(_dateTimeFormat, CultureInfo.InvariantCulture));
-								} else if (dr[c.Name] is float || dr[c.Name] is Double ||
-									dr[c.Name] is Decimal) {
-									data.Write(Convert.ToString(dr[c.Name],
-										CultureInfo.InvariantCulture));
-								} else {
+                                else if (dr[c.Name] is DateTime)
+								    data.Write(((DateTime) dr[c.Name]).ToString(_dateTimeFormat, CultureInfo.InvariantCulture));
+								else
 									data.Write(dr[c.Name].ToString()
 										.Replace(_tab, _escapeTab)
-										.Replace(_lineFeed, _escapeLineFeed)
-										.Replace(_carriageReturn, _escapeCarriageReturn));
-								}
-
+                                        .Replace(_lineFeed, _escapeLineFeed)
+                                        .Replace(_carriageReturn, _escapeCarriageReturn));
 								if (c != cols.Last())
 									data.Write(_tab);
 							}
-
 							data.WriteLine();
 						}
 					}
@@ -224,17 +218,14 @@ end
 				throw new InvalidOperationException();
 
 			var dt = new DataTable();
-			var cols = Columns.Items.Where(c => string.IsNullOrEmpty(c.ComputedDefinition))
-				.ToArray();
+			var cols = Columns.Items.Where(c => string.IsNullOrEmpty(c.ComputedDefinition)).ToArray();
 			foreach (var c in cols) {
 				dt.Columns.Add(new DataColumn(c.Name, c.SqlTypeToNativeType()));
 			}
 
 			var linenumber = 0;
 			var batch_rows = 0;
-			using (var bulk = new SqlBulkCopy(conn,
-				SqlBulkCopyOptions.KeepIdentity | SqlBulkCopyOptions.KeepNulls |
-				SqlBulkCopyOptions.TableLock)) {
+			using (var bulk = new SqlBulkCopy(conn, SqlBulkCopyOptions.KeepIdentity | SqlBulkCopyOptions.TableLock)) {
 				foreach (var colName in dt.Columns.OfType<DataColumn>().Select(c => c.ColumnName))
 					bulk.ColumnMappings.Add(colName, colName);
 				bulk.DestinationTableName = $"[{Owner}].[{Name}]";
@@ -256,12 +247,10 @@ end
 
 							if (rowsep_cnt == _rowSeparator.Length) {
 								// Remove rowseparator from line
-								line.RemoveRange(line.Count - _rowSeparator.Length,
-									_rowSeparator.Length);
+								line.RemoveRange(line.Count - _rowSeparator.Length, _rowSeparator.Length);
 								break;
 							}
 						}
-
 						linenumber++;
 
 						// Skip empty lines
@@ -271,26 +260,18 @@ end
 						batch_rows++;
 
 						var row = dt.NewRow();
-						var fields =
-							new String(line.ToArray()).Split(new[] { _tab },
-								StringSplitOptions.None);
+						var fields = (new String(line.ToArray())).Split(new[] { _tab }, StringSplitOptions.None);
 						if (fields.Length != dt.Columns.Count) {
-							throw new DataFileException("Incorrect number of columns", filename,
-								linenumber);
+							throw new DataFileException("Incorrect number of columns", filename, linenumber);
 						}
-
 						for (var j = 0; j < fields.Length; j++) {
 							try {
 								row[j] = ConvertType(cols[j].Type,
-									fields[j].Replace(_escapeLineFeed, _lineFeed)
-										.Replace(_escapeCarriageReturn, _carriageReturn)
-										.Replace(_escapeTab, _tab));
+									fields[j].Replace(_escapeLineFeed, _lineFeed).Replace(_escapeCarriageReturn, _carriageReturn).Replace(_escapeTab, _tab));
 							} catch (FormatException ex) {
-								throw new DataFileException($"{ex.Message} at column {j + 1}",
-									filename, linenumber);
+								throw new DataFileException($"{ex.Message} at column {j + 1}", filename, linenumber);
 							}
 						}
-
 						dt.Rows.Add(row);
 
 						if (batch_rows == RowsInBatch) {
@@ -321,10 +302,6 @@ end
 					return DateTime.Parse(val, CultureInfo.InvariantCulture);
 				case "int":
 					return int.Parse(val);
-				case "float":
-					return double.Parse(val, CultureInfo.InvariantCulture);
-				case "decimal":
-					return decimal.Parse(val, CultureInfo.InvariantCulture);
 				case "uniqueidentifier":
 					return new Guid(val);
 				case "binary":
@@ -334,28 +311,6 @@ end
 				default:
 					return val;
 			}
-		}
-
-		private void AppendOrderBy(StringBuilder sql, IEnumerable<Column> cols) {
-			sql.Append(" ORDER BY ");
-
-			if (PrimaryKey != null) {
-				var pkColumns = PrimaryKey.Columns.Select(c => $"[{c.ColumnName}]");
-				sql.Append(string.Join(",", pkColumns.ToArray()));
-				return;
-			}
-
-			var uk = Constraints.Where(c => c.Unique).OrderBy(c => c.Columns.Count)
-				.ThenBy(c => c.Name).FirstOrDefault();
-
-			if (uk != null) {
-				var ukColumns = uk.Columns.Select(c => $"[{c.ColumnName}]");
-				sql.Append(string.Join(",", ukColumns.ToArray()));
-				return;
-			}
-
-			var allColumns = cols.Select(c => $"[{c.Name}]");
-			sql.Append(string.Join(",", allColumns.ToArray()));
 		}
 	}
 
@@ -370,37 +325,50 @@ end
 		public string Name;
 		public string Owner;
 
-		public bool IsDiff => ColumnsAdded.Count + ColumnsDropped.Count + ColumnsDiff.Count +
-			ConstraintsAdded.Count +
-			ConstraintsChanged.Count + ConstraintsDeleted.Count > 0;
+		public bool IsDiff => ColumnsAdded.Count + ColumnsDropped.Count + ColumnsDiff.Count + ConstraintsAdded.Count +
+							  ConstraintsChanged.Count + ConstraintsDeleted.Count > 0;
 
 		public string Script() {
 			var text = new StringBuilder();
-
+			
 			foreach (var c in ColumnsAdded) {
-				text.Append($"ALTER TABLE [{Owner}].[{Name}] ADD {c.ScriptCreate()}\r\n");
+				text.Append($"IF NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME ='{Name}' AND COLUMN_NAME = '{c.Name}')\r\n");
+				text.Append($"BEGIN\r\n");
+				text.Append($" ALTER TABLE [{Owner}].[{Name}] ADD {c.ScriptCreate()}\r\n");
+				text.Append($"END\r\n");
 			}
 
 			foreach (var c in ColumnsDropped) {
+				if (c.Default != null)
+				{
+					text.Append($"ALTER TABLE [{Owner}].[{Name}] {c.Default.ScriptDrop()}\r\n");
+				}
 				text.Append($"ALTER TABLE [{Owner}].[{Name}] DROP COLUMN [{c.Name}]\r\n");
 			}
 
 			foreach (var c in ColumnsDiff) {
 				if (c.DefaultIsDiff) {
 					if (c.Source.Default != null) {
-						text.Append(
-							$"ALTER TABLE [{Owner}].[{Name}] {c.Source.Default.ScriptDrop()}\r\n");
+						text.Append($"ALTER TABLE [{Owner}].[{Name}] {c.Source.Default.ScriptDrop()}\r\n");
 					}
-
 					if (c.Target.Default != null) {
-						text.Append(
-							$"ALTER TABLE [{Owner}].[{Name}] {c.Target.Default.ScriptCreate(c.Target)}\r\n");
+						text.Append($"ALTER TABLE [{Owner}].[{Name}] {c.Target.Default.ScriptCreate(c.Target)}\r\n");
 					}
 				}
-
 				if (!c.OnlyDefaultIsDiff) {
-					text.Append(
-						$"ALTER TABLE [{Owner}].[{Name}] ALTER COLUMN {c.Target.ScriptAlter()}\r\n");
+					//Kolan adı Code ise IX_CompanyCode index drop-create edilecek 
+					if (c.Target.Name.Equals("Code") )
+					{
+						string IndexName = "IX_CompanyCode";
+						text.AppendLine();
+						text.AppendLine($"IF EXISTS(SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[{Owner}].[{Name}]') AND name = N'{IndexName}')  DROP INDEX [{IndexName}] ON [{Owner}].[{Name}]");
+						text.AppendLine($"ALTER TABLE [{Owner}].[{Name}] ALTER COLUMN {c.Target.ScriptAlter()}");
+						text.AppendLine($"CREATE UNIQUE NONCLUSTERED INDEX [{IndexName}] ON [{Owner}].[{Name}] ([Company_Id] ASC,[Code] ASC)");
+						text.AppendLine($" print('[{Owner}].[{Name}] - {IndexName}')");
+					}else
+					{
+						text.AppendLine($"ALTER TABLE [{Owner}].[{Name}] ALTER COLUMN {c.Target.ScriptAlter()}");
+					}
 				}
 			}
 

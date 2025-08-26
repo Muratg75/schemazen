@@ -9,10 +9,10 @@ using SchemaZen.Library.Command;
 using SchemaZen.Library.Models;
 
 namespace SchemaZen.console {
-	public class Script : BaseCommand {
-		public Script()
+	public class Import : BaseCommand {
+		public Import()
 			: base(
-				"Script", "Generate scripts for the specified database.") {
+				"Import", "Import data files to specified database.") {
 			HasOption(
 				"dataTables=",
 				"A comma separated list of tables to export data from.",
@@ -33,10 +33,6 @@ namespace SchemaZen.console {
 				"filterTypes=",
 				"A comma separated list of the types that will not be scripted. Valid types: " + Database.ValidTypes,
 				o => FilterTypes = o);
-			HasOption(
-				"onlyExportData=",
-				"  Valid types: default true",
-				o => onlyExportData=o);
 		}
 
 		private Logger _logger;
@@ -45,8 +41,6 @@ namespace SchemaZen.console {
 		protected string DataTablesPattern { get; set; }
         protected string DataTablesExcludePattern { get; set; }
         protected string TableHint { get; set; }
-
-		protected string onlyExportData { get; set; }
 		public override int Run(string[] args) {
 			_logger = new Logger(Verbose);
 
@@ -55,7 +49,7 @@ namespace SchemaZen.console {
 					return 1;
 			}
 
-			var scriptCommand = new ScriptCommand {
+			var importCommand = new ImportCommand {
 				ConnectionString = ConnectionString,
 				DbName = DbName,
 				Pass = Pass,
@@ -68,18 +62,10 @@ namespace SchemaZen.console {
 
 			var filteredTypes = HandleFilteredTypes();
 			var namesAndSchemas = HandleDataTables(DataTables);
-			bool blnOnlyExportData = true;
-			if (onlyExportData==null)
-			{
-				blnOnlyExportData = true;
-			}else
-			{
-				if (blnOnlyExportData.Equals("false"))
-					blnOnlyExportData = false;
-			}
+
 
 			try {
-				scriptCommand.Execute(namesAndSchemas, DataTablesPattern, DataTablesExcludePattern, TableHint, filteredTypes, blnOnlyExportData);
+				importCommand.Execute(namesAndSchemas, DataTablesPattern, DataTablesExcludePattern, TableHint, filteredTypes);
 			} catch (Exception ex) {
 				throw new ConsoleHelpAsException(ex.Message);
 			}
